@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { APP_RUNTIME_NAMESPACES } from "../config/runtimeNamespace";
 import { localDateKey } from "../domain/stats";
 import type { FocusSession, Todo } from "../domain/types";
 import { STORAGE_KEY, useAppStore } from "./useAppStore";
@@ -15,6 +16,28 @@ const expiredTimer = (runId: string) => ({
 });
 
 describe("app store rewards and settlement", () => {
+  it("persists development changes without touching production storage", () => {
+    useAppStore.getState().addTodo({
+      title: "开发版隔离验证",
+      priority: "importantNotUrgent",
+      scheduleType: "ordinary",
+      estimatedPomodoros: 1,
+    });
+
+    const productionValue = localStorage.getItem(
+      APP_RUNTIME_NAMESPACES.production.storageKey,
+    );
+    const developmentValue = localStorage.getItem(
+      APP_RUNTIME_NAMESPACES.development.storageKey,
+    );
+
+    expect(productionValue).toBeNull();
+    expect(developmentValue).not.toBeNull();
+    expect(JSON.parse(developmentValue!).state.todos).toMatchObject([
+      { title: "开发版隔离验证" },
+    ]);
+  });
+
   it("settles one run only once", () => {
     useAppStore.setState({ timer: expiredTimer("run-idempotent") });
     useAppStore.getState().completeCurrentTimer();

@@ -1,11 +1,10 @@
+import { STATE_SYNC_CHANNEL_NAME } from "../config/runtimeNamespace";
 import { selectPersistedState, useAppStore, type PersistedAppState } from "../store/useAppStore";
-
-const CHANNEL_NAME = "cat-pomodoro-state-v1";
 
 export const startStateSync = () => {
   if (!("BroadcastChannel" in window)) return () => undefined;
 
-  const channel = new BroadcastChannel(CHANNEL_NAME);
+  const channel = new BroadcastChannel(STATE_SYNC_CHANNEL_NAME);
   const source = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let applyingRemote = false;
 

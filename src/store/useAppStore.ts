@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_REWARD, DEFAULT_SETTINGS, DEFAULT_TIMER } from "../config/defaults";
+import { STORAGE_KEY } from "../config/runtimeNamespace";
 import { createIdleTimer, durationForMode, getRemainingSeconds } from "../domain/timer";
 import { localDateKey } from "../domain/stats";
 import { reconcileTodos } from "../domain/todo";
@@ -17,8 +18,15 @@ import type {
   TodoScheduleType,
 } from "../domain/types";
 import { createId } from "../services/id";
+import {
+  mergePersistedAppState,
+  migratePersistedAppState,
+  PERSISTENCE_VERSION,
+  type PersistedAppState,
+} from "./persistence";
 
-export const STORAGE_KEY = "cat-pomodoro-v1";
+export { STORAGE_KEY } from "../config/runtimeNamespace";
+export type { PersistedAppState } from "./persistence";
 
 export interface TodoInput {
   title: string;
@@ -29,17 +37,6 @@ export interface TodoInput {
   startDate?: string;
   endDate?: string;
   recurrence?: TodoRecurrence;
-}
-
-export interface PersistedAppState {
-  todos: Todo[];
-  todoPlans: TodoPlan[];
-  sessions: FocusSession[];
-  reward: RewardState;
-  settings: AppSettings;
-  timer: TimerSnapshot;
-  pendingBreakReminder: boolean;
-  snoozedUntil?: number;
 }
 
 interface AppActions {
@@ -568,7 +565,7 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 2,
+      version: PERSISTENCE_VERSION,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         todos: state.todos,
@@ -580,39 +577,8 @@ export const useAppStore = create<AppStore>()(
         pendingBreakReminder: state.pendingBreakReminder,
         snoozedUntil: state.snoozedUntil,
       }),
-      migrate: (persisted, version) => {
-        const saved = (persisted ?? {}) as Partial<PersistedAppState>;
-        if (version < 2) {
-          return {
-            ...saved,
-            todos: [],
-            todoPlans: [],
-            timer: {
-              ...DEFAULT_TIMER,
-              ...(saved.timer ?? {}),
-              selectedTodoId: undefined,
-            },
-          } as PersistedAppState;
-        }
-        return saved as PersistedAppState;
-      },
-      merge: (persisted, current) => {
-        const saved = (persisted ?? {}) as Partial<PersistedAppState>;
-        return {
-          ...current,
-          ...saved,
-          settings: { ...DEFAULT_SETTINGS, ...(saved.settings ?? {}) },
-          reward: {
-            ...DEFAULT_REWARD,
-            ...(saved.reward ?? {}),
-            transactions: saved.reward?.transactions ?? [],
-          },
-          todos: Array.isArray(saved.todos) ? saved.todos : [],
-          todoPlans: Array.isArray(saved.todoPlans) ? saved.todoPlans : [],
-          sessions: Array.isArray(saved.sessions) ? saved.sessions : [],
-          timer: { ...DEFAULT_TIMER, ...(saved.timer ?? {}) },
-        };
-      },
+      migrate: migratePersistedAppState,
+      merge: mergePersistedAppState,
     },
   ),
 );
