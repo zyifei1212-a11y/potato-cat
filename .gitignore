@@ -1,0 +1,42 @@
+# Dependencies and generated builds
+node_modules/
+dist/
+src-tauri/target/
+.pnpm-store/
+
+# Test and tooling output
+coverage/
+.vitest/
+test-results/
+playwright-report/
+tmp/
+temp/
+*.tmp
+*.log
+
+# Installers, installed copies, and release output
+outputs/
+煤煤v0.4.1/
+*.exe
+*.msi
+*.msix
+*.appx
+*.nsis.zip
+
+# Private/raw media and local production workspaces
+cat photos/
+video-generation/
+work/
+
+# WebView/user-data directories must never enter version history
+com.catpomodoro.desktop/
+com.catpomodoro.desktop.dev/
+WebView2/
+webview-data/
+
+# Editor and operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
