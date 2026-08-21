@@ -33,6 +33,7 @@ export interface TodoInput {
   priority: TodoPriority;
   scheduleType: TodoScheduleType;
   estimatedPomodoros: number;
+  requiresPomodoro?: boolean;
   scheduledDate?: string;
   startDate?: string;
   endDate?: string;
@@ -134,6 +135,7 @@ export const useAppStore = create<AppStore>()(
               priority: input.priority,
               scheduleType: input.scheduleType,
               estimatedPomodoros,
+              requiresPomodoro: input.requiresPomodoro !== false,
               startDate,
               endDate:
                 input.scheduleType === "dateRange"
@@ -156,6 +158,7 @@ export const useAppStore = create<AppStore>()(
             scheduledDate:
               input.scheduleType === "scheduled" ? input.scheduledDate || today : today,
             estimatedPomodoros,
+            requiresPomodoro: input.requiresPomodoro !== false,
             completedPomodoros: 0,
             isCompleted: false,
             createdAt: nowIso,
@@ -167,24 +170,32 @@ export const useAppStore = create<AppStore>()(
       updateTodo: (id, input) => {
         const title = input.title.trim();
         if (!title) return;
-        set((state) => ({
-          todos: state.todos.map((todo) =>
-            todo.id === id
-              ? {
-                  ...todo,
-                  title: title.slice(0, 80),
-                  priority: input.priority,
-                  scheduleType:
-                    input.scheduleType === "scheduled" ? "scheduled" : "ordinary",
-                  scheduledDate:
-                    input.scheduleType === "scheduled"
-                      ? input.scheduledDate || todo.scheduledDate
-                      : todo.scheduledDate,
-                  estimatedPomodoros: clampPomodoros(input.estimatedPomodoros),
-                }
-              : todo,
-          ),
-        }));
+        set((state) => {
+          const requiresPomodoro = input.requiresPomodoro !== false;
+          return {
+            todos: state.todos.map((todo) =>
+              todo.id === id
+                ? {
+                    ...todo,
+                    title: title.slice(0, 80),
+                    priority: input.priority,
+                    scheduleType:
+                      input.scheduleType === "scheduled" ? "scheduled" : "ordinary",
+                    scheduledDate:
+                      input.scheduleType === "scheduled"
+                        ? input.scheduledDate || todo.scheduledDate
+                        : todo.scheduledDate,
+                    estimatedPomodoros: clampPomodoros(input.estimatedPomodoros),
+                    requiresPomodoro,
+                  }
+                : todo,
+            ),
+            timer:
+              !requiresPomodoro && state.timer.selectedTodoId === id
+                ? { ...state.timer, selectedTodoId: undefined }
+                : state.timer,
+          };
+        });
       },
 
       updateTodoPlan: (id, input) => {
@@ -204,6 +215,7 @@ export const useAppStore = create<AppStore>()(
             priority: input.priority,
             scheduleType,
             estimatedPomodoros: clampPomodoros(input.estimatedPomodoros),
+            requiresPomodoro: input.requiresPomodoro !== false,
             startDate,
             endDate:
               scheduleType === "dateRange"
@@ -222,11 +234,22 @@ export const useAppStore = create<AppStore>()(
                   priority: nextPlan.priority,
                   scheduleType: nextPlan.scheduleType,
                   estimatedPomodoros: nextPlan.estimatedPomodoros,
+                  requiresPomodoro: nextPlan.requiresPomodoro,
                 }
               : todo,
           );
           const reconciled = reconcileTodos(todos, plans, now);
-          return { todos: reconciled.todos, todoPlans: reconciled.plans };
+          const selectedTodo = reconciled.todos.find(
+            (todo) => todo.id === state.timer.selectedTodoId,
+          );
+          return {
+            todos: reconciled.todos,
+            todoPlans: reconciled.plans,
+            timer:
+              selectedTodo?.requiresPomodoro === false
+                ? { ...state.timer, selectedTodoId: undefined }
+                : state.timer,
+          };
         });
       },
 
@@ -316,7 +339,13 @@ export const useAppStore = create<AppStore>()(
       },
 
       selectTodo: (id) => {
-        set((state) => ({ timer: { ...state.timer, selectedTodoId: id } }));
+        set((state) => {
+          if (id) {
+            const todo = state.todos.find((item) => item.id === id);
+            if (!todo || todo.isCompleted || todo.requiresPomodoro === false) return state;
+          }
+          return { timer: { ...state.timer, selectedTodoId: id } };
+        });
       },
 
       startOrResumeTimer: () => {

@@ -71,6 +71,24 @@ describe("app store rewards and settlement", () => {
     expect(useAppStore.getState().reward.transactions).toHaveLength(1);
   });
 
+  it("keeps a no-pomodoro todo out of timer binding while preserving its completion reward", () => {
+    useAppStore.getState().addTodo({
+      title: "直接完成的小事",
+      priority: "notImportantNotUrgent",
+      scheduleType: "ordinary",
+      estimatedPomodoros: 1,
+      requiresPomodoro: false,
+    });
+
+    const todo = useAppStore.getState().todos[0];
+    expect(todo.requiresPomodoro).toBe(false);
+    useAppStore.getState().selectTodo(todo.id);
+    expect(useAppStore.getState().timer.selectedTodoId).toBeUndefined();
+
+    useAppStore.getState().toggleTodo(todo.id);
+    expect(useAppStore.getState().reward.coins).toBe(1);
+  });
+
   it("grants the daily-four bonus exactly once", () => {
     const now = new Date();
     const previous: FocusSession[] = [1, 2, 3].map((index) => ({
@@ -132,6 +150,23 @@ describe("app store rewards and settlement", () => {
     expect(state.todoPlans).toHaveLength(1);
     expect(state.todos).toHaveLength(1);
     expect(state.todos[0]).toMatchObject({ title: "每日复盘", scheduledDate: today });
+  });
+
+  it("propagates the no-pomodoro choice from a recurring plan to its occurrence", () => {
+    const today = localDateKey();
+    useAppStore.getState().addTodo({
+      title: "每日喝水",
+      priority: "notImportantNotUrgent",
+      scheduleType: "recurring",
+      estimatedPomodoros: 1,
+      requiresPomodoro: false,
+      startDate: today,
+      recurrence: { frequency: "daily" },
+    });
+
+    const state = useAppStore.getState();
+    expect(state.todoPlans[0].requiresPomodoro).toBe(false);
+    expect(state.todos[0].requiresPomodoro).toBe(false);
   });
 
   it("drops version-one todos while preserving other settings", async () => {

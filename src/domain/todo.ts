@@ -31,6 +31,9 @@ export const PRIORITY_LABELS: Record<TodoPriority, string> = {
   notImportantNotUrgent: "不重要不紧急",
 };
 
+export const taskRequiresPomodoro = (task: { requiresPomodoro?: boolean }) =>
+  task.requiresPomodoro !== false;
+
 export const occursOnDate = (plan: TodoPlan, dateKey: string) => {
   if (dateKey < plan.startDate || plan.archivedAt) return false;
   if (plan.scheduleType === "dateRange") {
@@ -58,6 +61,7 @@ const makeOccurrence = (plan: TodoPlan, dateKey: string, nowIso: string): Todo =
   scheduleType: plan.scheduleType,
   scheduledDate: dateKey,
   estimatedPomodoros: plan.estimatedPomodoros,
+  requiresPomodoro: taskRequiresPomodoro(plan),
   completedPomodoros: 0,
   isCompleted: false,
   createdAt: nowIso,

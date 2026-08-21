@@ -7,6 +7,7 @@ import {
   isTodoVisibleToday,
   PRIORITY_LABELS,
   PRIORITY_ORDER,
+  taskRequiresPomodoro,
 } from "../domain/todo";
 import { localDateKey } from "../domain/stats";
 import { useLocalDayKey } from "../hooks/useLocalDayKey";
@@ -47,7 +48,8 @@ const makeEmptyForm = (): TodoInput => {
   const today = localDateKey();
   return {
     title: "", priority: "importantNotUrgent", scheduleType: "ordinary",
-    estimatedPomodoros: 1, scheduledDate: today, startDate: today, endDate: today,
+    estimatedPomodoros: 1, requiresPomodoro: true,
+    scheduledDate: today, startDate: today, endDate: today,
     recurrence: { frequency: "daily", weekdays: [new Date().getDay()], monthDay: new Date().getDate() },
   };
 };
@@ -55,12 +57,14 @@ const makeEmptyForm = (): TodoInput => {
 const inputFromTodo = (todo: Todo): TodoInput => ({
   title: todo.title, priority: todo.priority,
   scheduleType: todo.scheduleType === "scheduled" ? "scheduled" : "ordinary",
-  estimatedPomodoros: todo.estimatedPomodoros, scheduledDate: todo.scheduledDate,
+  estimatedPomodoros: todo.estimatedPomodoros,
+  requiresPomodoro: taskRequiresPomodoro(todo), scheduledDate: todo.scheduledDate,
 });
 
 const inputFromPlan = (plan: TodoPlan): TodoInput => ({
   title: plan.title, priority: plan.priority, scheduleType: plan.scheduleType,
-  estimatedPomodoros: plan.estimatedPomodoros, startDate: plan.startDate,
+  estimatedPomodoros: plan.estimatedPomodoros,
+  requiresPomodoro: taskRequiresPomodoro(plan), startDate: plan.startDate,
   endDate: plan.endDate ?? plan.startDate,
   recurrence: plan.recurrence ?? { frequency: "daily" },
 });
@@ -104,7 +108,8 @@ function TodoForm({ todo, plan, onDone }: { todo?: Todo; plan?: TodoPlan; onDone
       <label className="todo-field todo-field--wide"><span>待办内容</span><input autoFocus value={form.title} maxLength={80} placeholder="例如：完成项目方案" onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
       <label className="todo-field"><span>优先级</span><select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as TodoPriority })}>{priorityOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
       <label className="todo-field"><span>安排方式</span><select value={form.scheduleType} disabled={editing} title={editing ? "如需改变安排方式，请删除后重新建立" : undefined} onChange={(event) => setForm({ ...form, scheduleType: event.target.value as TodoScheduleType })}>{scheduleOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
-      <label className="todo-field todo-field--compact"><span>预计番茄</span><input type="number" min={1} max={20} value={form.estimatedPomodoros} onChange={(event) => setForm({ ...form, estimatedPomodoros: Number(event.target.value) })} /></label>
+      <label className="todo-field"><span>专注方式</span><select aria-label="专注方式" value={form.requiresPomodoro === false ? "none" : "pomodoro"} onChange={(event) => setForm({ ...form, requiresPomodoro: event.target.value === "pomodoro" })}><option value="pomodoro">需要番茄钟</option><option value="none">无需番茄钟</option></select></label>
+      <label className="todo-field todo-field--compact"><span>预计番茄</span><input type="number" min={1} max={20} disabled={form.requiresPomodoro === false} value={form.estimatedPomodoros} onChange={(event) => setForm({ ...form, estimatedPomodoros: Number(event.target.value) })} /></label>
 
       {form.scheduleType === "scheduled" ? <label className="todo-field"><span>出现日期</span><input type="date" value={form.scheduledDate} onChange={(event) => setForm({ ...form, scheduledDate: event.target.value })} required /></label> : null}
 
@@ -158,7 +163,7 @@ export function TodoPanel() {
   const rangeHistory = useMemo(() => plans.filter((plan) => plan.scheduleType === "dateRange" && (Boolean(plan.archivedAt) || countPlanCompletions(plan.id, todos) > 0)), [plans, todos]);
 
   const choose = (todo: Todo) => {
-    if (todo.isCompleted) return;
+    if (todo.isCompleted || !taskRequiresPomodoro(todo)) return;
     if (timerStatus === "running" && todo.id !== selectedTodoId && !window.confirm("专注正在进行，确定把本轮改绑到这个待办吗？")) return;
     selectTodo(todo.id === selectedTodoId ? undefined : todo.id);
   };
@@ -188,7 +193,7 @@ export function TodoPanel() {
                 {!overdue && todo.scheduleType === "scheduled" ? <span className="tag">指定 {formatShortDate(todo.scheduledDate)}</span> : null}
                 {plan ? <span className="tag schedule-tag">{describeRecurrence(plan)}</span> : null}
                 {plan?.scheduleType === "dateRange" ? <span>✓ {countPlanCompletions(plan.id, todos)} 次</span> : null}
-                <span>🍅 {todo.completedPomodoros}/{todo.estimatedPomodoros}</span>
+                {taskRequiresPomodoro(todo) ? <span>🍅 {todo.completedPomodoros}/{todo.estimatedPomodoros}</span> : <span className="tag no-pomodoro-tag">无需番茄钟</span>}
               </div></div>
               {todo.id === selectedTodoId && !todo.isCompleted ? <span className="focus-badge">当前专注</span> : null}
               <div className="todo-row__actions"><button aria-label="编辑待办" onClick={(event) => { event.stopPropagation(); setEditingId(todo.id); }}>✎</button><button aria-label="删除待办" onClick={(event) => { event.stopPropagation(); const text = plan ? `删除“${todo.title}”的整个计划及全部记录吗？` : `删除“${todo.title}”吗？`; if (window.confirm(text)) deleteTodo(todo.id); }}>×</button></div>
@@ -198,9 +203,9 @@ export function TodoPanel() {
 
       {tab === "plans" ? <div className="todo-list plan-list">
         {activePlans.map((plan) => editingPlanId === plan.id ? <TodoForm key={plan.id} plan={plan} onDone={() => setEditingPlanId(undefined)} /> :
-          <article className="plan-row" key={plan.id}><div className="plan-row__main"><strong>{plan.title}</strong><div><PriorityTag priority={plan.priority} /><span className="tag schedule-tag">{describeRecurrence(plan)}</span><span className="tag">开始 {formatShortDate(plan.startDate)}</span></div><small>已完成 {countPlanCompletions(plan.id, todos)} 次</small></div><div className="plan-row__actions"><button onClick={() => setEditingPlanId(plan.id)}>编辑</button><button onClick={() => { if (window.confirm(`删除“${plan.title}”的整个计划及全部记录吗？`)) deleteTodoPlan(plan.id); }}>删除</button></div></article>)}
+          <article className="plan-row" key={plan.id}><div className="plan-row__main"><strong>{plan.title}</strong><div><PriorityTag priority={plan.priority} /><span className="tag schedule-tag">{describeRecurrence(plan)}</span><span className="tag">开始 {formatShortDate(plan.startDate)}</span>{!taskRequiresPomodoro(plan) ? <span className="tag no-pomodoro-tag">无需番茄钟</span> : null}</div><small>已完成 {countPlanCompletions(plan.id, todos)} 次</small></div><div className="plan-row__actions"><button onClick={() => setEditingPlanId(plan.id)}>编辑</button><button onClick={() => { if (window.confirm(`删除“${plan.title}”的整个计划及全部记录吗？`)) deleteTodoPlan(plan.id); }}>删除</button></div></article>)}
         {futureTodos.map((todo) => editingId === todo.id ? <TodoForm key={todo.id} todo={todo} onDone={() => setEditingId(undefined)} /> :
-          <article className="plan-row" key={todo.id}><div className="plan-row__main"><strong>{todo.title}</strong><div><PriorityTag priority={todo.priority} /><span className="tag">指定 {formatShortDate(todo.scheduledDate)}</span></div><small>到指定日期自动进入今日待办</small></div><div className="plan-row__actions"><button onClick={() => setEditingId(todo.id)}>编辑</button><button onClick={() => { if (window.confirm(`删除“${todo.title}”吗？`)) deleteTodo(todo.id); }}>删除</button></div></article>)}
+          <article className="plan-row" key={todo.id}><div className="plan-row__main"><strong>{todo.title}</strong><div><PriorityTag priority={todo.priority} /><span className="tag">指定 {formatShortDate(todo.scheduledDate)}</span>{!taskRequiresPomodoro(todo) ? <span className="tag no-pomodoro-tag">无需番茄钟</span> : null}</div><small>到指定日期自动进入今日待办</small></div><div className="plan-row__actions"><button onClick={() => setEditingId(todo.id)}>编辑</button><button onClick={() => { if (window.confirm(`删除“${todo.title}”吗？`)) deleteTodo(todo.id); }}>删除</button></div></article>)}
         {activePlans.length === 0 && futureTodos.length === 0 ? <div className="empty-state empty-state--compact"><span>◷</span><strong>还没有任务计划</strong><p>重复待办、时间区间和未来指定日期会显示在这里。</p></div> : null}
       </div> : null}
 

@@ -19,6 +19,7 @@ export interface TodoPlan {
   priority: TodoPriority;
   scheduleType: "recurring" | "dateRange";
   estimatedPomodoros: number;
+  requiresPomodoro?: boolean;
   startDate: string;
   endDate?: string;
   recurrence?: TodoRecurrence;
@@ -35,6 +36,7 @@ export interface Todo {
   scheduleType: TodoScheduleType;
   scheduledDate: string;
   estimatedPomodoros: number;
+  requiresPomodoro?: boolean;
   completedPomodoros: number;
   isCompleted: boolean;
   createdAt: string;
