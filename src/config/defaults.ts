@@ -4,6 +4,7 @@ import { createIdleTimer } from "../domain/timer";
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "latte",
   appIconStyle: "meimeiGreen",
+  windowSizePreset: "medium",
   catName: "煤煤",
   focusMinutes: 25,
   shortBreakMinutes: 5,
@@ -24,3 +25,4 @@ export const DEFAULT_REWARD: RewardState = {
 };
 
 export const DEFAULT_TIMER = createIdleTimer("focus", DEFAULT_SETTINGS);
+

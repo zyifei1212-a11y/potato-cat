@@ -1,5 +1,5 @@
 import { APP_ICON_SOURCES } from "../config/appIcons";
-import type { AppIconStyle } from "../domain/types";
+import type { AppIconStyle, WindowSizePreset } from "../domain/types";
 
 const isTauri = () => Boolean(window.__TAURI_INTERNALS__);
 
@@ -7,6 +7,14 @@ const isTauri = () => Boolean(window.__TAURI_INTERNALS__);
 // scaling can round opposite edges differently, so matching the 350x352 CSS
 // stage exactly can still cut off the final few physical pixels.
 export const PET_WINDOW_BASE_SIZE = { width: 370, height: 372 } as const;
+
+export const MAIN_WINDOW_PRESETS = {
+  compact: { width: 390, height: 844 },
+  medium: { width: 860, height: 620 },
+} as const;
+
+export const mainWindowSizeForPreset = (preset: WindowSizePreset) =>
+  preset === "fullscreen" ? null : MAIN_WINDOW_PRESETS[preset];
 
 interface Point {
   x: number;
@@ -52,6 +60,24 @@ export const minimizeCurrentWindow = async () => {
   if (!isTauri()) return false;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   await getCurrentWindow().minimize();
+  return true;
+};
+
+export const switchMainWindowPreset = async (preset: WindowSizePreset) => {
+  if (!isTauri()) return false;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  const appWindow = getCurrentWindow();
+
+  if (preset === "fullscreen") {
+    await appWindow.setFullscreen(true);
+    return true;
+  }
+
+  const { LogicalSize } = await import("@tauri-apps/api/dpi");
+  const size = MAIN_WINDOW_PRESETS[preset];
+  await appWindow.setFullscreen(false);
+  await appWindow.setSize(new LogicalSize(size.width, size.height));
+  await appWindow.center();
   return true;
 };
 
@@ -206,3 +232,4 @@ export const applyAppIcon = async (style: AppIconStyle) => {
 
   return { windowUpdated, shortcutCount };
 };
+

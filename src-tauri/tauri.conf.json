@@ -16,10 +16,10 @@
         "title": "猫咪桌宠番茄钟",
         "width": 860,
         "height": 620,
-        "minWidth": 720,
+        "minWidth": 360,
         "minHeight": 520,
         "center": true,
-        "resizable": true,
+        "resizable": false,
         "decorations": false,
         "shadow": true
       },
@@ -59,7 +59,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "resources": [
       "resources/app-icons/classic.ico",
       "resources/app-icons/meimei-green.ico"

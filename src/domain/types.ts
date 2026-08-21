@@ -6,6 +6,7 @@ export type TodoPriority =
 
 export type TodoScheduleType = "ordinary" | "scheduled" | "recurring" | "dateRange";
 export type TodoRepeatFrequency = "daily" | "weekly" | "monthly";
+export type WindowSizePreset = "compact" | "medium" | "fullscreen";
 
 export interface TodoRecurrence {
   frequency: TodoRepeatFrequency;
@@ -76,6 +77,7 @@ export interface RewardState {
 export interface AppSettings {
   theme: AppTheme;
   appIconStyle: AppIconStyle;
+  windowSizePreset: WindowSizePreset;
   catName: string;
   focusMinutes: number;
   shortBreakMinutes: number;
@@ -123,3 +125,4 @@ export interface TodayStats {
   abandonedSessions: number;
   earnedCoins: number;
 }
+

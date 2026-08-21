@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   desktopPointerToClient,
+  mainWindowSizeForPreset,
   petWindowSizeForScale,
 } from "./windowManager";
 
@@ -36,5 +37,17 @@ describe("pet window geometry", () => {
         0.5,
       ),
     ).toEqual({ x: 150, y: 150 });
+  });
+});
+
+
+describe("main window presets", () => {
+  it("uses fixed phone and small-window sizes", () => {
+    expect(mainWindowSizeForPreset("compact")).toEqual({ width: 390, height: 844 });
+    expect(mainWindowSizeForPreset("medium")).toEqual({ width: 860, height: 620 });
+  });
+
+  it("lets fullscreen use the current display instead of a fixed size", () => {
+    expect(mainWindowSizeForPreset("fullscreen")).toBeNull();
   });
 });
